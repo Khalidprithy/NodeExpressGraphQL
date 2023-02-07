@@ -11,7 +11,7 @@ const {
 } = require('graphql')
 const app = express();
 
-const category = [
+const categories = [
     { id: 1, name: 'Mobile Phones' },
     { id: 2, name: 'Tablets' },
     { id: 3, name: 'Laptops' },
@@ -35,6 +35,27 @@ const ProductType = new GraphQLObjectType({
         id: { type: GraphQLNonNull(GraphQLInt) },
         name: { type: GraphQLNonNull(GraphQLString) },
         categoryId: { type: GraphQLNonNull(GraphQLInt) },
+        category: {
+            type: CategoryType,
+            resolve: (product) => {
+                return categories.find(category => category.id === product.categoryId)
+            }
+        }
+    })
+});
+
+const CategoryType = new GraphQLObjectType({
+    name: 'Category',
+    description: 'This is the category details',
+    fields: () => ({
+        id: { type: GraphQLNonNull(GraphQLInt) },
+        name: { type: GraphQLNonNull(GraphQLString) },
+        products: {
+            type: new GraphQLList(ProductType),
+            resolve: (category) => {
+                return products.filter(product => product.categoryId === category.id)
+            }
+        }
     })
 });
 
@@ -42,16 +63,70 @@ const RootQueryType = new GraphQLObjectType({
     name: 'Query',
     description: 'Root Query',
     fields: () => ({
+        product: {
+            type: ProductType,
+            description: 'One Product',
+            args: {
+                id: { type: GraphQLInt }
+            },
+            resolve: (parent, args) => products.find(product => product.id === args.id)
+        },
         products: {
             type: new GraphQLList(ProductType),
             description: 'List of Product',
             resolve: () => products
+        },
+        categories: {
+            type: new GraphQLList(CategoryType),
+            description: 'List of Categories',
+            resolve: () => categories
+        },
+        category: {
+            type: CategoryType,
+            description: 'One Category',
+            args: {
+                id: { type: GraphQLInt }
+            },
+            resolve: (parent, args) => categories.find(category => category.id === args.id)
+        },
+    })
+});
+
+const RootMutationType = new GraphQLObjectType({
+    name: 'Mutation',
+    description: 'Root Mutation',
+    fields: () => ({
+        addProduct: {
+            type: ProductType,
+            description: 'Add a Product',
+            args: {
+                name: { type: GraphQLNonNull(GraphQLString) },
+                categoryId: { type: GraphQLNonNull(GraphQLInt) }
+            },
+            resolve: (parent, args) => {
+                const product = { id: products.length + 1, name: args.name, categoryId: args.categoryId }
+                products.push(product)
+                return product
+            }
+        },
+        addCategory: {
+            type: CategoryType,
+            description: 'Add a Category',
+            args: {
+                name: { type: GraphQLNonNull(GraphQLString) },
+            },
+            resolve: (parent, args) => {
+                const category = { id: categories.length + 1, name: args.name }
+                products.push(category)
+                return category
+            }
         }
     })
 })
 
 const schema = new GraphQLSchema({
-    query: RootQueryType
+    query: RootQueryType,
+    mutation: RootMutationType
 })
 
 app.use('/graphql', expressGraphQL({
